@@ -13,10 +13,10 @@ GEMINI_API_KEY = "AQ.Ab8RN6L9Yat3WRKQSrJJ1fXXT6aZhFfknmTb_cIV1tPJHossyQ"
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 # ==============================================
 
-# إعداد الذكاء الاصطناعي (تم تحديث النموذج إلى 3.8-flash)
+# إعداد الذكاء الاصطناعي (استخدام نموذج gemini-pro الأكثر استقراراً)
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    ai_model = genai.GenerativeModel('gemini-3.8-flash')
+    ai_model = genai.GenerativeModel('gemini-pro')
 except Exception as e:
     print(f"خطأ في إعداد الذكاء الاصطناعي: {e}")
 
@@ -30,7 +30,7 @@ LEAGUES = {
 }
 
 def get_main_menu():
-    """القائمة الرئيسية مع كل الأزرار"""
+    """القائمة الرئيسية"""
     keyboard = [
         [InlineKeyboardButton("🏴󠁧󠁢󠁥󠁮󠁧󠁿 إنجلترا", callback_data="PL"), InlineKeyboardButton("🇪🇸 إسبانيا", callback_data="PD")],
         [InlineKeyboardButton("🇮🇹 إيطاليا", callback_data="SA"), InlineKeyboardButton("🇩🇪 ألمانيا", callback_data="BL1")],
@@ -42,9 +42,7 @@ def get_main_menu():
     return InlineKeyboardMarkup(keyboard)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # تصفير حالة الذكاء الاصطناعي عند بدء البوت
     context.user_data['in_ai_mode'] = False
-    
     await update.message.reply_text(
         "⚽ أهلاً بك في بوت كورة لايف!\n\n"
         "اختر الدوري الذي تريد معرفة مبارياته اليوم، أو اضغط على (Live).\n"
@@ -54,12 +52,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================= دوال الذكاء الاصطناعي =================
 async def start_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """عند الضغط على زر التحدث مع الذكاء الاصطناعي"""
     query = update.callback_query
     await query.answer()
     
     context.user_data['in_ai_mode'] = True
-    
     keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="BACK")]]
     
     await query.edit_message_text(
@@ -72,7 +68,6 @@ async def start_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """التعامل مع الرسائل النصية عندما يكون المستخدم في وضع الذكاء الاصطناعي"""
     if not context.user_data.get('in_ai_mode', False):
         return
     
@@ -80,8 +75,9 @@ async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     wait_message = await update.message.reply_text("🤖 جاري التفكير...")
     
     try:
-        prompt = f"أنت خبير ومحلل رياضي في كرة القدم. أجب على السؤال التالي بإيجاز وباللغة العربية: {user_message}"
-        response = ai_model.generate_content(prompt)
+        # تقصير الطلب وإضافة مهلة زمنية لتجنب التعليق
+        prompt = f"أنت خبير كرة قدم. أجب بالعربية وبإيجاز شديد: {user_message}"
+        response = ai_model.generate_content(prompt, request_options={"timeout": 15})
         
         if response.text:
             await wait_message.edit_text(
@@ -92,7 +88,7 @@ async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await wait_message.edit_text("❌ لم أتمكن من العثور على إجابة.")
             
     except Exception as e:
-        await wait_message.edit_text(f"❌ عذراً، حدث خطأ.\nالخطأ: {str(e)}")
+        await wait_message.edit_text(f"❌ عذراً، حدث خطأ أو استغرق الرد وقتاً طويلاً.\nالخطأ: {str(e)}")
 
 # ================= دوال كرة القدم =================
 async def league_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -225,14 +221,12 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     
-    # معالجات الأزرار
     application.add_handler(CallbackQueryHandler(start_ai_chat, pattern="^AI_CHAT$"))
     application.add_handler(CallbackQueryHandler(live_matches, pattern="^LIVE_NOW$"))
     application.add_handler(CallbackQueryHandler(league_matches, pattern="^(PL|PD|SA|BL1|FL1|CL)$"))
     application.add_handler(CallbackQueryHandler(back_to_menu, pattern="^BACK$"))
     application.add_handler(CallbackQueryHandler(exit_bot, pattern="^EXIT$"))
 
-    # معالج الذكاء الاصطناعي
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_chat))
 
     PORT = int(os.environ.get("PORT", 10000))
