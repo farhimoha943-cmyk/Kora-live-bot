@@ -1,14 +1,24 @@
 import os
 import requests
+import google.generativeai as genai
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
 # ================= الإعدادات =================
 TELEGRAM_TOKEN = "9139384093:AAGGravTcDX_Xf2DvD8v9yZjDYU7iEadkrw" 
 FOOTBALL_API_KEY = "313d3f63571a44f38dd6e08b89de1e6e" 
+GEMINI_API_KEY = "AQ.Ab8RN6L9Yat3WRKQSrJJ1fXXT6aZhFfknmTb_cIV1tPJHossyQ" 
+
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 # ==============================================
+
+# إعداد الذكاء الاصطناعي
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    ai_model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    print(f"خطأ في إعداد الذكاء الاصطناعي: {e}")
 
 LEAGUES = {
     "PL": {"name": "🏴󠁧󠁢󠁥󠁮󠁧󠁿 الدوري الإنجليزي", "id": "PL"},
@@ -20,25 +30,77 @@ LEAGUES = {
 }
 
 def get_main_menu():
-    """إنشاء لوحة الأزرار الرئيسية (تمت إضافة زر المطور)"""
+    """القائمة الرئيسية"""
     keyboard = [
         [InlineKeyboardButton("🏴󠁧󠁢󠁥󠁮󠁧󠁿 إنجلترا", callback_data="PL"), InlineKeyboardButton("🇪🇸 إسبانيا", callback_data="PD")],
         [InlineKeyboardButton("🇮🇹 إيطاليا", callback_data="SA"), InlineKeyboardButton("🇩🇪 ألمانيا", callback_data="BL1")],
         [InlineKeyboardButton("🇫🇷 فرنسا", callback_data="FL1"), InlineKeyboardButton("🏆 أبطال أوروبا", callback_data="CL")],
         [InlineKeyboardButton("🔴 مباريات تُلعب الآن (Live)", callback_data="LIVE_NOW")],
-        # زر المطور الجديد (يستخدم url بدلاً من callback_data)
+        [InlineKeyboardButton("🤖 التحدث مع الذكاء الاصطناعي", callback_data="AI_CHAT")], # الزر الجديد
         [InlineKeyboardButton("👨‍💻 المطور", url="https://t.me/lou1ii")] 
     ]
     return InlineKeyboardMarkup(keyboard)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # تصفير حالة الذكاء الاصطناعي عند بدء البوت
+    context.user_data['in_ai_mode'] = False
+    
     await update.message.reply_text(
         "⚽ أهلاً بك في بوت كورة لايف!\n\n"
-        "اختر الدوري الذي تريد معرفة مبارياته اليوم، أو اضغط على (Live) لمعرفة المباريات الجارية:",
+        "اختر الدوري الذي تريد معرفة مبارياته اليوم، أو اضغط على (Live).\n"
+        "💡 يمكنك التحدث مع الذكاء الاصطناعي بالضغط على الزر المخصص.",
         reply_markup=get_main_menu()
     )
 
+# ================= دوال الذكاء الاصطناعي =================
+async def start_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عند الضغط على زر التحدث مع الذكاء الاصطناعي"""
+    query = update.callback_query
+    await query.answer()
+    
+    # تفعيل وضع الذكاء الاصطناعي لهذا المستخدم
+    context.user_data['in_ai_mode'] = True
+    
+    keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="BACK")]]
+    
+    await query.edit_message_text(
+        "🤖 *أهلاً بك في قسم الذكاء الاصطناعي!*\n\n"
+        "أنا خبير في كرة القدم. يمكنك سؤالي أي شيء الآن.\n"
+        "أرسل سؤالك كرسالة نصية وسأجيبك فوراً.\n\n"
+        "_(للعودة، اضغط على زر العودة بالأسفل)_",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
+
+async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """التعامل مع الرسائل النصية عندما يكون المستخدم في وضع الذكاء الاصطناعي"""
+    # إذا لم يكن المستخدم في وضع الذكاء الاصطناعي، نتجاهل الرسالة
+    if not context.user_data.get('in_ai_mode', False):
+        return
+    
+    user_message = update.message.text
+    wait_message = await update.message.reply_text("🤖 جاري التفكير...")
+    
+    try:
+        prompt = f"أنت خبير ومحلل رياضي في كرة القدم. أجب على السؤال التالي بإيجاز وباللغة العربية: {user_message}"
+        response = ai_model.generate_content(prompt)
+        
+        if response.text:
+            await wait_message.edit_text(
+                response.text,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة للقائمة", callback_data="BACK")]])
+            )
+        else:
+            await wait_message.edit_text("❌ لم أتمكن من العثور على إجابة.")
+            
+    except Exception as e:
+        await wait_message.edit_text(f"❌ عذراً، حدث خطأ.\nالخطأ: {str(e)}")
+
+# ================= دوال كرة القدم =================
 async def league_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # إيقاف وضع الذكاء الاصطناعي عند تصفح المباريات
+    context.user_data['in_ai_mode'] = False
+    
     query = update.callback_query
     await query.answer()
     
@@ -98,6 +160,7 @@ async def league_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['in_ai_mode'] = False
     query = update.callback_query
     await query.answer()
     
@@ -146,6 +209,9 @@ async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"❌ حدث خطأ: {str(e)}")
 
 async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # إيقاف وضع الذكاء الاصطناعي عند العودة
+    context.user_data['in_ai_mode'] = False
+    
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -154,6 +220,7 @@ async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def exit_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['in_ai_mode'] = False
     query = update.callback_query
     await query.answer("تم إغلاق البوت.")
     await query.delete_message()
@@ -163,10 +230,16 @@ def main():
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
+    
+    # معالجات الأزرار
+    application.add_handler(CallbackQueryHandler(start_ai_chat, pattern="^AI_CHAT$")) # معالج زر الذكاء الاصطناعي
     application.add_handler(CallbackQueryHandler(live_matches, pattern="^LIVE_NOW$"))
     application.add_handler(CallbackQueryHandler(league_matches, pattern="^(PL|PD|SA|BL1|FL1|CL)$"))
     application.add_handler(CallbackQueryHandler(back_to_menu, pattern="^BACK$"))
     application.add_handler(CallbackQueryHandler(exit_bot, pattern="^EXIT$"))
+
+    # معالج الرسائل النصية (يعمل فقط إذا كان المستخدم في وضع الذكاء الاصطناعي)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_chat))
 
     PORT = int(os.environ.get("PORT", 10000))
     if WEBHOOK_URL:
