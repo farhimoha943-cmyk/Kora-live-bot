@@ -2,3 +2,4 @@ python-telegram-bot[webhooks]
 requests
 uvicorn
 starlette
+google-generativeai
