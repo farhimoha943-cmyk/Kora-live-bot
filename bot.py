@@ -5,13 +5,13 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ================= الإعدادات =================
-# قراءة التوكن من إعدادات Render (Environment Variables) لزيادة الأمان
+# قراءة التوكن من إعدادات Render (Environment Variables)
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "ضع_التوكن_هنا_كاحتياط_فقط") 
 
 # مفتاح كرة القدم الخاص بك
 FOOTBALL_API_KEY = "313d3f63571a44f38dd6e08b89de1e6e" 
 
-# رابط منصة Render (سنضيفه لاحقاً في إعدادات Render)
+# رابط منصة Render (سنضيفه في إعدادات Render)
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 # ==============================================
 
@@ -139,13 +139,14 @@ def main():
     application.add_handler(CallbackQueryHandler(exit_bot, pattern="^EXIT$"))
 
     # ================= تشغيل البوت بنظام Webhook =================
-    PORT = int(os.environ.get("PORT", 8080))
+    # قراءة المنفذ من إعدادات Render
+    PORT = int(os.environ.get("PORT", 10000))
     
     if WEBHOOK_URL:
         print(f"البوت يعمل الآن بنظام Webhook على المنفذ {PORT}...")
         application.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
+            listen="0.0.0.0",  # الاستماع على كل الواجهات
+            port=PORT,          # المنفذ الذي توفره Render
             url_path="webhook",
             webhook_url=f"{WEBHOOK_URL}/webhook"
         )
