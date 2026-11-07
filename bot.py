@@ -13,10 +13,10 @@ GEMINI_API_KEY = "AQ.Ab8RN6L9Yat3WRKQSrJJ1fXXT6aZhFfknmTb_cIV1tPJHossyQ"
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 # ==============================================
 
-# إعداد الذكاء الاصطناعي
+# إعداد الذكاء الاصطناعي (تم تحديث النموذج إلى 2.5-flash)
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    ai_model = genai.GenerativeModel('gemini-1.5-flash')
+    ai_model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
     print(f"خطأ في إعداد الذكاء الاصطناعي: {e}")
 
@@ -30,13 +30,13 @@ LEAGUES = {
 }
 
 def get_main_menu():
-    """القائمة الرئيسية"""
+    """القائمة الرئيسية مع كل الأزرار"""
     keyboard = [
         [InlineKeyboardButton("🏴󠁧󠁢󠁥󠁮󠁧󠁿 إنجلترا", callback_data="PL"), InlineKeyboardButton("🇪🇸 إسبانيا", callback_data="PD")],
         [InlineKeyboardButton("🇮🇹 إيطاليا", callback_data="SA"), InlineKeyboardButton("🇩🇪 ألمانيا", callback_data="BL1")],
         [InlineKeyboardButton("🇫🇷 فرنسا", callback_data="FL1"), InlineKeyboardButton("🏆 أبطال أوروبا", callback_data="CL")],
         [InlineKeyboardButton("🔴 مباريات تُلعب الآن (Live)", callback_data="LIVE_NOW")],
-        [InlineKeyboardButton("🤖 التحدث مع الذكاء الاصطناعي", callback_data="AI_CHAT")], # الزر الجديد
+        [InlineKeyboardButton("🤖 التحدث مع الذكاء الاصطناعي", callback_data="AI_CHAT")],
         [InlineKeyboardButton("👨‍💻 المطور", url="https://t.me/lou1ii")] 
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -58,7 +58,6 @@ async def start_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    # تفعيل وضع الذكاء الاصطناعي لهذا المستخدم
     context.user_data['in_ai_mode'] = True
     
     keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="BACK")]]
@@ -74,7 +73,6 @@ async def start_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """التعامل مع الرسائل النصية عندما يكون المستخدم في وضع الذكاء الاصطناعي"""
-    # إذا لم يكن المستخدم في وضع الذكاء الاصطناعي، نتجاهل الرسالة
     if not context.user_data.get('in_ai_mode', False):
         return
     
@@ -98,9 +96,7 @@ async def ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================= دوال كرة القدم =================
 async def league_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # إيقاف وضع الذكاء الاصطناعي عند تصفح المباريات
     context.user_data['in_ai_mode'] = False
-    
     query = update.callback_query
     await query.answer()
     
@@ -209,9 +205,7 @@ async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"❌ حدث خطأ: {str(e)}")
 
 async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # إيقاف وضع الذكاء الاصطناعي عند العودة
     context.user_data['in_ai_mode'] = False
-    
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -232,13 +226,13 @@ def main():
     application.add_handler(CommandHandler("start", start))
     
     # معالجات الأزرار
-    application.add_handler(CallbackQueryHandler(start_ai_chat, pattern="^AI_CHAT$")) # معالج زر الذكاء الاصطناعي
+    application.add_handler(CallbackQueryHandler(start_ai_chat, pattern="^AI_CHAT$"))
     application.add_handler(CallbackQueryHandler(live_matches, pattern="^LIVE_NOW$"))
     application.add_handler(CallbackQueryHandler(league_matches, pattern="^(PL|PD|SA|BL1|FL1|CL)$"))
     application.add_handler(CallbackQueryHandler(back_to_menu, pattern="^BACK$"))
     application.add_handler(CallbackQueryHandler(exit_bot, pattern="^EXIT$"))
 
-    # معالج الرسائل النصية (يعمل فقط إذا كان المستخدم في وضع الذكاء الاصطناعي)
+    # معالج الذكاء الاصطناعي
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_chat))
 
     PORT = int(os.environ.get("PORT", 10000))
