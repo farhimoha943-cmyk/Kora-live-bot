@@ -20,12 +20,14 @@ LEAGUES = {
 }
 
 def get_main_menu():
-    """إنشاء لوحة الأزرار الرئيسية (تمت إضافة زر البث المباشر)"""
+    """إنشاء لوحة الأزرار الرئيسية (تمت إضافة زر المطور)"""
     keyboard = [
         [InlineKeyboardButton("🏴󠁧󠁢󠁥󠁮󠁧󠁿 إنجلترا", callback_data="PL"), InlineKeyboardButton("🇪🇸 إسبانيا", callback_data="PD")],
         [InlineKeyboardButton("🇮🇹 إيطاليا", callback_data="SA"), InlineKeyboardButton("🇩🇪 ألمانيا", callback_data="BL1")],
         [InlineKeyboardButton("🇫🇷 فرنسا", callback_data="FL1"), InlineKeyboardButton("🏆 أبطال أوروبا", callback_data="CL")],
-        [InlineKeyboardButton("🔴 مباريات تُلعب الآن (Live)", callback_data="LIVE_NOW")] # الزر الجديد
+        [InlineKeyboardButton("🔴 مباريات تُلعب الآن (Live)", callback_data="LIVE_NOW")],
+        # زر المطور الجديد (يستخدم url بدلاً من callback_data)
+        [InlineKeyboardButton("👨‍💻 المطور", url="https://t.me/lou1ii")] 
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -96,13 +98,11 @@ async def league_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دالة جديدة: جلب المباريات التي تُلعب الآن"""
     query = update.callback_query
     await query.answer()
     
     await query.edit_message_text("⏳ جاري البحث عن المباريات الجارية الآن...")
 
-    # جلب مباريات اليوم من كل الدوريات
     today = datetime.now().strftime("%Y-%m-%d")
     url = f"https://api.football-data.org/v4/matches?dateFrom={today}&dateTo={today}"
     headers = {"X-Auth-Token": FOOTBALL_API_KEY}
@@ -133,7 +133,6 @@ async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f"🏆 {comp}\n"
             text += f"🆚 {home} *{score_home} - {score_away}* {away}\n"
             
-            # إنشاء رابط بحث جوجل عن البث المباشر
             search_query = f"بث مباشر {home} ضد {away}"
             search_url = f"https://www.google.com/search?q={requests.utils.quote(search_query)}"
             
@@ -164,7 +163,6 @@ def main():
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    # إضافة معالج للزر الجديد
     application.add_handler(CallbackQueryHandler(live_matches, pattern="^LIVE_NOW$"))
     application.add_handler(CallbackQueryHandler(league_matches, pattern="^(PL|PD|SA|BL1|FL1|CL)$"))
     application.add_handler(CallbackQueryHandler(back_to_menu, pattern="^BACK$"))
