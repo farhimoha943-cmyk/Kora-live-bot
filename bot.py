@@ -1,14 +1,18 @@
+import os
 import requests
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ================= الإعدادات =================
-# ⚠️ ضع التوكن الجديد هنا (بعد إلغاء القديم من BotFather)
-TELEGRAM_TOKEN = "9139384093:AAGGravTcDX_Xf2DvD8v9yZjDYU7iEadkrw" 
+# قراءة التوكن من إعدادات Render (Environment Variables) لزيادة الأمان
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "ضع_التوكن_هنا_كاحتياط_فقط") 
 
 # مفتاح كرة القدم الخاص بك
 FOOTBALL_API_KEY = "313d3f63571a44f38dd6e08b89de1e6e" 
+
+# رابط منصة Render (سنضيفه لاحقاً في إعدادات Render)
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 # ==============================================
 
 LEAGUES = {
@@ -114,20 +118,17 @@ async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def exit_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """زر الخروج / إغلاق البوت"""
     query = update.callback_query
     await query.answer("تم إغلاق البوت بنجاح. أرسل /start للبدء من جديد.")
-    
     await query.delete_message()
-    
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text="👋 تم إنهاء الجلسة. إذا أردت استخدام البوت مجدداً، أرسل /start."
     )
 
 def main():
-    if not TELEGRAM_TOKEN or not FOOTBALL_API_KEY:
-        print("خطأ: تأكد من تعبئة TELEGRAM_TOKEN و FOOTBALL_API_KEY")
+    if not TELEGRAM_TOKEN:
+        print("خطأ: تأكد من تعبئة TELEGRAM_TOKEN في إعدادات Render")
         return
 
     application = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -137,8 +138,20 @@ def main():
     application.add_handler(CallbackQueryHandler(back_to_menu, pattern="^BACK$"))
     application.add_handler(CallbackQueryHandler(exit_bot, pattern="^EXIT$"))
 
-    print("البوت يعمل الآن... اضغط Ctrl+C للإيقاف.")
-    application.run_polling()
+    # ================= تشغيل البوت بنظام Webhook =================
+    PORT = int(os.environ.get("PORT", 8080))
+    
+    if WEBHOOK_URL:
+        print(f"البوت يعمل الآن بنظام Webhook على المنفذ {PORT}...")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path="webhook",
+            webhook_url=f"{WEBHOOK_URL}/webhook"
+        )
+    else:
+        print("تنبيه: لم يتم تعيين WEBHOOK_URL. البوت سيعمل بنظام Polling (قد يتوقف على Render).")
+        application.run_polling()
 
 if __name__ == "__main__":
     main()
