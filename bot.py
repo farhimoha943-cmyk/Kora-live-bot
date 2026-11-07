@@ -5,8 +5,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ================= الإعدادات =================
-# قراءة التوكن من إعدادات Render (Environment Variables)
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "ضع_التوكن_هنا_كاحتياط_فقط") 
+# تم وضع التوكن الخاص بك هنا مباشرة
+TELEGRAM_TOKEN = "9139384093:AAGGravTcDX_Xf2DvD8v9yZjDYU7iEadkrw" 
 
 # مفتاح كرة القدم الخاص بك
 FOOTBALL_API_KEY = "313d3f63571a44f38dd6e08b89de1e6e" 
@@ -127,10 +127,6 @@ async def exit_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 def main():
-    if not TELEGRAM_TOKEN:
-        print("خطأ: تأكد من تعبئة TELEGRAM_TOKEN في إعدادات Render")
-        return
-
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -139,19 +135,18 @@ def main():
     application.add_handler(CallbackQueryHandler(exit_bot, pattern="^EXIT$"))
 
     # ================= تشغيل البوت بنظام Webhook =================
-    # قراءة المنفذ من إعدادات Render
     PORT = int(os.environ.get("PORT", 10000))
     
     if WEBHOOK_URL:
         print(f"البوت يعمل الآن بنظام Webhook على المنفذ {PORT}...")
         application.run_webhook(
-            listen="0.0.0.0",  # الاستماع على كل الواجهات
-            port=PORT,          # المنفذ الذي توفره Render
+            listen="0.0.0.0",
+            port=PORT,
             url_path="webhook",
             webhook_url=f"{WEBHOOK_URL}/webhook"
         )
     else:
-        print("تنبيه: لم يتم تعيين WEBHOOK_URL. البوت سيعمل بنظام Polling (قد يتوقف على Render).")
+        print("تنبيه: لم يتم تعيين WEBHOOK_URL. البوت سيعمل بنظام Polling.")
         application.run_polling()
 
 if __name__ == "__main__":
