@@ -13,10 +13,10 @@ GEMINI_API_KEY = "AQ.Ab8RN6L9Yat3WRKQSrJJ1fXXT6aZhFfknmTb_cIV1tPJHossyQ"
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 # ==============================================
 
-# إعداد الذكاء الاصطناعي (تم تحديث النموذج إلى 2.5-flash)
+# إعداد الذكاء الاصطناعي (تم تحديث النموذج إلى 3.8-flash)
 try:
     genai.configure(api_key=GEMINI_API_KEY)
-    ai_model = genai.GenerativeModel('gemini-2.5-flash')
+    ai_model = genai.GenerativeModel('gemini-3.8-flash')
 except Exception as e:
     print(f"خطأ في إعداد الذكاء الاصطناعي: {e}")
 
